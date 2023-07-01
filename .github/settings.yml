@@ -109,5 +109,5 @@ labels:
     description: This issue or pull request is related to translations
     color: dd79b4
   - name: "won't fix"
-    description: This issue or pull request will not be worked on
+    description: This issue or pull request will not be worked on.
     color: ffffff
