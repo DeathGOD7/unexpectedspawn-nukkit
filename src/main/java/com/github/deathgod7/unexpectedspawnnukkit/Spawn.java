@@ -13,6 +13,7 @@ import cn.nukkit.level.Location;
 import cn.nukkit.Player;
 import cn.nukkit.block.BlockID;
 import cn.nukkit.level.Position;
+import cn.nukkit.potion.Effect;
 import org.jline.utils.Log;
 
 import java.util.HashSet;
@@ -42,6 +43,8 @@ public class Spawn implements Listener {
     Level deathWorld;
     Player deadPlayer;
     Location deathLocation;
+
+    Location newRespawnLocation;
 
 
     @EventHandler
@@ -156,11 +159,40 @@ public class Spawn implements Listener {
 
         if(plugin.config().getConfig().getBoolean(useCustomOnDeath + "random-respawn.on-death")) {
             if (!hasBedRespawn(event.getRespawnPosition()) || !plugin.config().getConfig().getBoolean(useCustomBedRespawn + "random-respawn.bed-respawn-enabled")) {
-                Location respawnLocation = getRandomSpawnLocation(respawnWorld);
-                LogConsole.warn("Triggered random respawn!!", LogConsole.logTypes.debug);
-                event.setRespawnPosition(respawnLocation);
+                    respawnNew(respawnWorld, event);
+//                newRespawnLocation = getRandomSpawnLocation(respawnWorld);
+//                LogConsole.warn("Triggered random respawn!!", LogConsole.logTypes.debug);
+//
+//                event.setRespawnPosition(newRespawnLocation);
+//
+//                event.getPlayer().addEffect(Effect.getEffect(15).setAmplifier(5000).setDuration(20).setVisible(false));
+//                event.getPlayer().getServer().getScheduler().scheduleDelayedTask(UnexpectedSpawn.getInstance(), () -> {
+//                    newRespawnLocation.y =  event.getPlayer().getLevel().getHighestBlockAt((int)newRespawnLocation.x, (int)newRespawnLocation.z) + 2;
+//                    event.getPlayer().teleport(new Location(newRespawnLocation.x, newRespawnLocation.y, newRespawnLocation.z));
+//                    LogConsole.warn("Modified Location : " + "(X "+newRespawnLocation.x+", Y "+newRespawnLocation.y+", Z "+newRespawnLocation.z+")", LogConsole.logTypes.debug);
+//                }, 20);
             }
         }
+    }
+
+    private void respawnNew(Level respawnWorld, PlayerRespawnEvent event){
+        newRespawnLocation = getRandomSpawnLocation(respawnWorld);
+        LogConsole.warn("Triggered random respawn!!", LogConsole.logTypes.debug);
+
+        event.setRespawnPosition(newRespawnLocation);
+
+        event.getPlayer().addEffect(Effect.getEffect(15).setAmplifier(5000).setDuration(20).setVisible(false));
+        event.getPlayer().getServer().getScheduler().scheduleDelayedTask(UnexpectedSpawn.getInstance(), () -> {
+            newRespawnLocation.y =  event.getPlayer().getLevel().getHighestBlockAt((int)newRespawnLocation.x, (int)newRespawnLocation.z) + 2;
+            if (!blacklistedMaterial.contains(newRespawnLocation.getLevelBlock().getId())) {
+                event.getPlayer().teleport(new Location(newRespawnLocation.x, newRespawnLocation.y, newRespawnLocation.z));
+                LogConsole.warn("Modified Location : " + "(X "+newRespawnLocation.x+", Y "+newRespawnLocation.y+", Z "+newRespawnLocation.z+")", LogConsole.logTypes.debug);
+            }
+            else {
+                LogConsole.warn("Retry Again!!", LogConsole.logTypes.debug);
+                respawnNew(respawnWorld, event);
+            }
+        }, 20);
     }
 
     public boolean hasBedRespawn(Position respawnPos) {
@@ -264,9 +296,16 @@ public class Spawn implements Listener {
 
             int x = xmin + ThreadLocalRandom.current().nextInt((xmax - xmin) + 1);
             int z = zmin + ThreadLocalRandom.current().nextInt((zmax - zmin) + 1);
+
+            //generate chunk
+            world.generateChunk(x, z, true);
+
+            // then get highest y
             int y = world.getHighestBlockAt(x, z);
 
             tryCount++;
+
+            LogConsole.warn("Original Location "+tryCount+" : (X "+x+", Y "+y+", Z "+z+")", LogConsole.logTypes.debug);
 
             Location location = new Location(x,y,z,world);
                    // Location(world, x, y, z);
